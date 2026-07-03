@@ -1,0 +1,1 @@
+# deprem-kabini-3d
