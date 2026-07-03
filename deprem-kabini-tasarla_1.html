@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kabinimi Tasarla — 3D Deprem / Afet Yaşam Kabini Konfigüratörü</title>
+<style>
+  :root{
+    --celik:#1b2530;
+    --panel:#232f3d;
+    --cizgi:#33414f;
+    --metin:#eef2f5;
+    --soluk:#93a3b1;
+    --turuncu:#e8722a;
+    --turuncu-koyu:#c85c1c;
+    --zemin:#141b23;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    background:var(--zemin);color:var(--metin);overflow:hidden;
+  }
+  #app{display:flex;height:100vh;width:100vw}
+
+  /* ---------- 3D görünüm ---------- */
+  #sahne{flex:1;position:relative;min-width:0}
+  #sahne canvas{display:block}
+  .marka{
+    position:absolute;top:18px;left:22px;pointer-events:none;user-select:none;
+  }
+  .marka .ust{font-size:11px;letter-spacing:3px;color:var(--soluk);text-transform:uppercase}
+  .marka .alt{font-size:22px;font-weight:700;letter-spacing:.5px}
+  .marka .alt span{color:var(--turuncu)}
+  .ipucu{
+    position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+    background:rgba(20,27,35,.75);border:1px solid var(--cizgi);
+    padding:7px 14px;border-radius:20px;font-size:12px;color:var(--soluk);
+    pointer-events:none;white-space:nowrap;backdrop-filter:blur(4px);
+  }
+  .dondur{
+    position:absolute;top:18px;right:18px;display:flex;gap:8px;
+  }
+  .dondur button{
+    background:rgba(20,27,35,.8);border:1px solid var(--cizgi);color:var(--metin);
+    width:38px;height:38px;border-radius:8px;cursor:pointer;font-size:16px;
+  }
+  .dondur button.aktif{border-color:var(--turuncu);color:var(--turuncu)}
+
+  /* ---------- Sağ panel ---------- */
+  #panel{
+    width:360px;background:var(--celik);border-left:1px solid var(--cizgi);
+    display:flex;flex-direction:column;flex-shrink:0;
+  }
+  .panel-baslik{
+    padding:18px 20px 14px;border-bottom:1px solid var(--cizgi);
+  }
+  .panel-baslik h1{font-size:17px;font-weight:700}
+  .panel-baslik p{font-size:12px;color:var(--soluk);margin-top:3px}
+  .icerik{flex:1;overflow-y:auto;padding:6px 20px 20px}
+  .icerik::-webkit-scrollbar{width:8px}
+  .icerik::-webkit-scrollbar-thumb{background:var(--cizgi);border-radius:4px}
+
+  .bolum{padding:16px 0 6px}
+  .bolum h2{
+    font-size:11px;text-transform:uppercase;letter-spacing:2px;
+    color:var(--soluk);margin-bottom:10px;display:flex;align-items:center;gap:8px;
+  }
+  .bolum h2::after{content:"";flex:1;height:1px;background:var(--cizgi)}
+
+  .kartlar{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .kart{
+    background:var(--panel);border:1px solid var(--cizgi);border-radius:8px;
+    padding:10px 12px;cursor:pointer;transition:border-color .15s;
+  }
+  .kart:hover{border-color:#4a5a6a}
+  .kart.secili{border-color:var(--turuncu);background:#2a3240}
+  .kart .ad{font-size:13px;font-weight:600}
+  .kart .detay{font-size:11px;color:var(--soluk);margin-top:2px}
+
+  .renkler{display:flex;flex-wrap:wrap;gap:8px}
+  .renk{
+    width:34px;height:34px;border-radius:8px;cursor:pointer;
+    border:2px solid transparent;outline:1px solid rgba(255,255,255,.12);outline-offset:-1px;
+    position:relative;
+  }
+  .renk.secili{border-color:var(--turuncu)}
+  .renk-ad{font-size:11px;color:var(--soluk);margin-top:8px;min-height:14px}
+
+  .anahtar{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--panel);border:1px solid var(--cizgi);border-radius:8px;
+    padding:10px 12px;margin-bottom:8px;cursor:pointer;
+  }
+  .anahtar .sol .ad{font-size:13px;font-weight:600}
+  .anahtar .sol .detay{font-size:11px;color:var(--soluk)}
+  .dugme{
+    width:40px;height:22px;border-radius:11px;background:#3a4756;position:relative;
+    transition:background .15s;flex-shrink:0;margin-left:10px;
+  }
+  .dugme::after{
+    content:"";position:absolute;width:16px;height:16px;border-radius:50%;
+    background:#cfd8e0;top:3px;left:3px;transition:left .15s;
+  }
+  .anahtar.acik .dugme{background:var(--turuncu)}
+  .anahtar.acik .dugme::after{left:21px}
+
+  /* ---------- Fiyat alt bar ---------- */
+  .alt-bar{
+    border-top:1px solid var(--cizgi);padding:14px 20px;background:var(--celik);
+  }
+  .fiyat-satir{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .fiyat-satir .etiket{font-size:12px;color:var(--soluk)}
+  .fiyat-satir .tutar{font-size:22px;font-weight:800;color:var(--turuncu)}
+  .fiyat-satir .not{font-size:10px;color:var(--soluk)}
+  .teklif{
+    width:100%;background:var(--turuncu);border:none;color:#fff;font-weight:700;
+    font-size:14px;padding:12px;border-radius:8px;cursor:pointer;
+  }
+  .teklif:hover{background:var(--turuncu-koyu)}
+
+  /* ---------- Özet modal ---------- */
+  #modal{
+    position:fixed;inset:0;background:rgba(10,14,18,.7);display:none;
+    align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  #modal.acik{display:flex}
+  .modal-kutu{
+    background:var(--celik);border:1px solid var(--cizgi);border-radius:12px;
+    width:100%;max-width:420px;padding:22px;max-height:85vh;overflow-y:auto;
+  }
+  .modal-kutu h3{font-size:16px;margin-bottom:4px}
+  .modal-kutu .alt{font-size:12px;color:var(--soluk);margin-bottom:14px}
+  .ozet-satir{
+    display:flex;justify-content:space-between;font-size:13px;
+    padding:8px 0;border-bottom:1px solid var(--cizgi);
+  }
+  .ozet-satir .k{color:var(--soluk)}
+  .ozet-toplam{display:flex;justify-content:space-between;padding:12px 0 4px;font-weight:800;font-size:16px}
+  .ozet-toplam span:last-child{color:var(--turuncu)}
+  .modal-butonlar{display:flex;gap:8px;margin-top:14px}
+  .modal-butonlar button{
+    flex:1;padding:11px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;border:1px solid var(--cizgi);
+  }
+  .b-kapat{background:transparent;color:var(--metin)}
+  .b-gonder{background:var(--turuncu);border-color:var(--turuncu);color:#fff}
+
+  /* ---------- Mobil ---------- */
+  @media (max-width:860px){
+    #app{flex-direction:column}
+    #sahne{height:44vh;flex:none}
+    #panel{width:100%;flex:1;border-left:none;border-top:1px solid var(--cizgi)}
+    .ipucu{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sahne">
+    <div class="marka">
+      <div class="ust">Deprem / Afet · 3D Konfigüratör</div>
+      <div class="alt">Kabinimi <span>Tasarla</span></div>
+    </div>
+    <div class="dondur">
+      <button id="btnDonus" class="aktif" title="Otomatik döndür">⟳</button>
+      <button id="btnSifirla" title="Görünümü sıfırla">⌂</button>
+    </div>
+    <div class="ipucu">Sürükleyerek döndürün · Tekerlekle yakınlaştırın</div>
+  </div>
+
+  <div id="panel">
+    <div class="panel-baslik">
+      <h1>Deprem / Afet Yaşam Kabini</h1>
+      <p>Depreme dayanıklı çelik konstrüksiyon. Seçimleriniz modele anlık yansır.</p>
+    </div>
+
+    <div class="icerik">
+      <div class="bolum">
+        <h2>Kabin Modeli</h2>
+        <div class="kartlar" id="modeller"></div>
+      </div>
+
+      <div class="bolum">
+        <h2>Gövde Rengi (RAL)</h2>
+        <div class="renkler" id="renkler"></div>
+        <div class="renk-ad" id="renkAd"></div>
+      </div>
+
+      <div class="bolum">
+        <h2>Cam Tipi</h2>
+        <div class="kartlar" id="camlar"></div>
+      </div>
+
+      <div class="bolum">
+        <h2>Çatı Tipi</h2>
+        <div class="kartlar" id="catilar"></div>
+      </div>
+
+      <div class="bolum">
+        <h2>Yalıtım Paketi</h2>
+        <div class="kartlar" id="yalitimlar"></div>
+      </div>
+
+      <div class="bolum">
+        <h2>Aksesuarlar</h2>
+        <div id="aksesuarlar"></div>
+      </div>
+    </div>
+
+    <div class="alt-bar">
+      <div class="fiyat-satir">
+        <div>
+          <div class="etiket">Tahmini Fiyat</div>
+          <div class="not">KDV hariç · nakliye dahil değildir</div>
+        </div>
+        <div class="tutar" id="fiyat">—</div>
+      </div>
+      <button class="teklif" id="btnTeklif">Teklif Özetini Gör</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal">
+  <div class="modal-kutu">
+    <h3>Teklif Özeti</h3>
+    <div class="alt">Bu özet, seçtiğiniz konfigürasyonun dökümüdür.</div>
+    <div id="ozet"></div>
+    <div class="ozet-toplam"><span>Tahmini Toplam</span><span id="ozetFiyat"></span></div>
+    <div class="modal-butonlar">
+      <button class="b-kapat" id="btnKapat">Düzenlemeye Dön</button>
+      <button class="b-gonder" id="btnGonder">Teklif İste</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =========================================================
+   DURUM (müşterinin seçimleri)
+========================================================= */
+const MODELLER = [
+  {id:'acil',  ad:'Acil Barınma',   detay:'300 × 240 cm · 2 kişi', w:3.0, d:2.4, taban:185000},
+  {id:'aile',  ad:'Aile Tipi',      detay:'500 × 240 cm · 4 kişi', w:5.0, d:2.4, taban:265000},
+  {id:'genis', ad:'Geniş Aile',     detay:'600 × 300 cm · 6 kişi', w:6.0, d:3.0, taban:340000},
+  {id:'koord', ad:'Koordinasyon',   detay:'400 × 240 cm · Ofis',   w:4.0, d:2.4, taban:225000},
+];
+const YALITIMLAR = [
+  {id:'standart', ad:'Standart',        detay:'EPS panel',             ek:0},
+  {id:'isi',      ad:'Isı Yalıtımlı',   detay:'Taşyünü · 4 mevsim',    ek:22000},
+  {id:'tam',      ad:'Tam Paket',       detay:'Isı + ses + yangın A1', ek:38000},
+];
+const RENKLER = [
+  {id:'antrasit', ad:'RAL 7016 Antrasit', hex:'#383e42'},
+  {id:'mavi',     ad:'RAL 5010 Jandarma Mavi', hex:'#0e5a8a'},
+  {id:'yesil',    ad:'RAL 6005 Yosun Yeşili', hex:'#12503c'},
+  {id:'kirmizi',  ad:'RAL 3020 Trafik Kırmızısı', hex:'#c1272d'},
+  {id:'beyaz',    ad:'RAL 9002 Gri Beyaz', hex:'#e4e8e0'},
+  {id:'turuncu',  ad:'RAL 2004 Saf Turuncu', hex:'#e25303'},
+  {id:'gri',      ad:'RAL 7035 Açık Gri', hex:'#c2c6c3'},
+  {id:'sari',     ad:'RAL 1023 Trafik Sarısı', hex:'#f0b400'},
+];
+const CAMLAR = [
+  {id:'camsiz',    ad:'Camsız (Kapalı)', detay:'Tam sac panel · depo tipi', ek:0},
+  {id:'standart',  ad:'Standart Cam',   detay:'Şeffaf temperli', ek:0},
+  {id:'fume',      ad:'Füme Cam',       detay:'Güneş kontrollü', ek:4500},
+  {id:'panoramik', ad:'Panoramik Cam',  detay:'Tam boy görüş',   ek:12000},
+];
+const CATILAR = [
+  {id:'duz',     ad:'Düz Çatı',     detay:'Sade görünüm', ek:0},
+  {id:'sacakli', ad:'Saçaklı Çatı', detay:'Geniş saçak',  ek:3500},
+  {id:'egimli',  ad:'Eğimli Çatı',  detay:'Kar/yağmur akışı', ek:6000},
+];
+const AKSESUARLAR = [
+  {id:'gunes',  ad:'Güneş Paneli',      detay:'Elektrik kesintisinde enerji', ek:32000},
+  {id:'depo',   ad:'Su Deposu',         detay:'500 L temiz su',               ek:9500},
+  {id:'klima',  ad:'Klima Ünitesi',     detay:'Isıtma / soğutma',             ek:14500},
+  {id:'tabela', ad:'Işıklı Tabela',     detay:'"AFET YAŞAM" ön pano',         ek:4500},
+  {id:'kizak',  ad:'Forklift Kızağı',   detay:'Vinçsiz sevkiyat',             ek:3000},
+];
+
+const durum = {
+  model:'acil',
+  renk:'beyaz',
+  cam:'standart',
+  cati:'egimli',
+  yalitim:'isi',
+  aks:{gunes:true, depo:false, klima:false, tabela:true, kizak:false},
+};
+
+/* =========================================================
+   3D SAHNE
+========================================================= */
+const sahneEl = document.getElementById('sahne');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x141b23);
+scene.fog = new THREE.Fog(0x141b23, 20, 42);
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+sahneEl.appendChild(renderer.domElement);
+
+/* Işıklar */
+scene.add(new THREE.HemisphereLight(0xbfd4e6, 0x223040, 0.85));
+const gunes = new THREE.DirectionalLight(0xffffff, 0.95);
+gunes.position.set(6, 9, 5);
+gunes.castShadow = true;
+gunes.shadow.mapSize.set(2048, 2048);
+gunes.shadow.camera.left = -8; gunes.shadow.camera.right = 8;
+gunes.shadow.camera.top = 8;  gunes.shadow.camera.bottom = -8;
+scene.add(gunes);
+const dolgu = new THREE.DirectionalLight(0x88aacc, 0.3);
+dolgu.position.set(-5, 4, -6);
+scene.add(dolgu);
+
+/* Zemin */
+const zemin = new THREE.Mesh(
+  new THREE.CircleGeometry(14, 48),
+  new THREE.MeshStandardMaterial({color:0x1d2833, roughness:0.95})
+);
+zemin.rotation.x = -Math.PI/2;
+zemin.receiveShadow = true;
+scene.add(zemin);
+const halka = new THREE.Mesh(
+  new THREE.RingGeometry(4.2, 4.26, 64),
+  new THREE.MeshBasicMaterial({color:0x33414f, side:THREE.DoubleSide})
+);
+halka.rotation.x = -Math.PI/2; halka.position.y = 0.002;
+scene.add(halka);
+
+/* Kamera yörüngesi (elle kontrol) */
+let theta = 0.7, phi = 1.18, mesafe = 6.2, otoDonus = true;
+let hedefY = 1.3;
+function kamerayiGuncelle(){
+  camera.position.set(
+    mesafe * Math.sin(phi) * Math.sin(theta),
+    mesafe * Math.cos(phi) + hedefY * 0.4,
+    mesafe * Math.sin(phi) * Math.cos(theta)
+  );
+  camera.lookAt(0, hedefY, 0);
+}
+let surukleme = false, sonX = 0, sonY = 0;
+const cv = renderer.domElement;
+cv.addEventListener('pointerdown', e => {surukleme = true; otoDonus = false; btnDonus.classList.remove('aktif'); sonX = e.clientX; sonY = e.clientY;});
+window.addEventListener('pointerup', () => surukleme = false);
+window.addEventListener('pointermove', e => {
+  if(!surukleme) return;
+  theta -= (e.clientX - sonX) * 0.008;
+  phi   -= (e.clientY - sonY) * 0.006;
+  phi = Math.max(0.5, Math.min(1.45, phi));
+  sonX = e.clientX; sonY = e.clientY;
+});
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  mesafe = Math.max(3.5, Math.min(18, mesafe + e.deltaY * 0.005));
+}, {passive:false});
+
+/* =========================================================
+   KABİN MODELİ (parametrik)
+========================================================= */
+let kabin = null;
+
+function malzeme(hex, opts={}){
+  return new THREE.MeshStandardMaterial(Object.assign({color:hex, roughness:0.55, metalness:0.25}, opts));
+}
+
+function tabelaDoku(){
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 96;
+  const g = c.getContext('2d');
+  g.fillStyle = '#101418'; g.fillRect(0,0,512,96);
+  g.fillStyle = '#ffb400';
+  g.font = '700 56px Arial';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('AFET YAŞAM', 256, 50);
+  const t = new THREE.CanvasTexture(c);
+  return t;
+}
+
+function kabinOlustur(){
+  if(kabin){ scene.remove(kabin); }
+  kabin = new THREE.Group();
+
+  const m = MODELLER.find(x=>x.id===durum.model);
+  const W = m.w, D = m.d, H = 2.35;
+  const renkHex = RENKLER.find(x=>x.id===durum.renk).hex;
+
+  const govdeM = malzeme(renkHex);
+  const cerceveM = malzeme('#20262c', {roughness:0.4, metalness:0.5});
+  const camAyar = durum.cam==='fume'
+    ? {color:0x2a3540, opacity:0.72}
+    : {color:0x9fc8e0, opacity:0.38};
+  const camM = new THREE.MeshStandardMaterial({
+    color:camAyar.color, transparent:true, opacity:camAyar.opacity,
+    roughness:0.08, metalness:0.6
+  });
+
+  const panoramik = durum.cam==='panoramik';
+  const camsiz = durum.cam==='camsiz';
+  const altH = panoramik ? 0.55 : 1.0;          // alt sac panel yüksekliği
+  const camH = H - altH - 0.32;                  // cam yüksekliği
+  const tabanY = 0.12;
+
+  /* Taban / kaide */
+  const taban = new THREE.Mesh(new THREE.BoxGeometry(W+0.08, tabanY, D+0.08), cerceveM);
+  taban.position.y = tabanY/2; taban.castShadow = taban.receiveShadow = true;
+  kabin.add(taban);
+
+  /* Köşe dikmeleri */
+  const dikG = new THREE.BoxGeometry(0.09, H, 0.09);
+  [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx,sz])=>{
+    const p = new THREE.Mesh(dikG, cerceveM);
+    p.position.set(sx*(W/2-0.045), tabanY+H/2, sz*(D/2-0.045));
+    p.castShadow = true; kabin.add(p);
+  });
+
+  /* Duvar üretici: yön 0=ön(+z) 1=arka(-z) 2=sağ(+x) 3=sol(-x) */
+  function duvar(genislik, yon, kapi){
+    const grup = new THREE.Group();
+    const ic = genislik - 0.18;
+
+    if(kapi){
+      // Kapı duvarı: yan dolgular + kapı
+      const kapiW = Math.min(0.85, ic*0.6);
+      const yanW = (ic - kapiW)/2;
+      [-1,1].forEach(s=>{
+        const yan = new THREE.Mesh(new THREE.BoxGeometry(yanW, H-0.1, 0.06), govdeM);
+        yan.position.set(s*(kapiW/2 + yanW/2), tabanY + (H-0.1)/2, 0);
+        yan.castShadow = true; grup.add(yan);
+      });
+      const kapiPanel = new THREE.Mesh(new THREE.BoxGeometry(kapiW, H-0.28, 0.07), govdeM);
+      kapiPanel.position.set(0, tabanY + (H-0.28)/2, 0.012);
+      kapiPanel.castShadow = true; grup.add(kapiPanel);
+      // Kapı camı (camsız modelde yok)
+      if(!camsiz){
+        const kc = new THREE.Mesh(new THREE.BoxGeometry(kapiW-0.24, 0.75, 0.02), camM);
+        kc.position.set(0, tabanY + H - 0.75, 0.05);
+        grup.add(kc);
+      }
+      // Kol
+      const kol = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.05), cerceveM);
+      kol.position.set(kapiW/2 - 0.12, tabanY + 1.05, 0.06);
+      grup.add(kol);
+      // Üst bant
+      const bant = new THREE.Mesh(new THREE.BoxGeometry(genislik, 0.18, 0.06), govdeM);
+      bant.position.set(0, tabanY + H - 0.09, 0); grup.add(bant);
+    } else if(camsiz){
+      // Tam kapalı sac panel duvar
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(ic, H-0.06, 0.06), govdeM);
+      panel.position.set(0, tabanY + (H-0.06)/2, 0);
+      panel.castShadow = true; grup.add(panel);
+      // Yatay hatıl profilleri (sandviç panel derz görünümü)
+      [H*0.33, H*0.66].forEach(y=>{
+        const pr = new THREE.Mesh(new THREE.BoxGeometry(ic, 0.03, 0.068), cerceveM);
+        pr.position.set(0, tabanY + y, 0); grup.add(pr);
+      });
+      // Üst bant
+      const bant = new THREE.Mesh(new THREE.BoxGeometry(genislik, 0.16, 0.065), govdeM);
+      bant.position.set(0, tabanY + H - 0.08, 0); grup.add(bant);
+    } else {
+      // Alt panel
+      const alt = new THREE.Mesh(new THREE.BoxGeometry(ic, altH, 0.06), govdeM);
+      alt.position.set(0, tabanY + altH/2, 0); alt.castShadow = true; grup.add(alt);
+      // Cam
+      const cam = new THREE.Mesh(new THREE.BoxGeometry(ic-0.06, camH, 0.024), camM);
+      cam.position.set(0, tabanY + altH + camH/2, 0); grup.add(cam);
+      // Cam orta kayıt (panoramikte yok)
+      if(!panoramik && ic > 1.0){
+        const kayit = new THREE.Mesh(new THREE.BoxGeometry(0.05, camH, 0.05), cerceveM);
+        kayit.position.set(0, tabanY + altH + camH/2, 0); grup.add(kayit);
+      }
+      // Alt/üst cam profilleri
+      [altH, altH+camH].forEach(y=>{
+        const pr = new THREE.Mesh(new THREE.BoxGeometry(ic, 0.06, 0.07), cerceveM);
+        pr.position.set(0, tabanY + y, 0); grup.add(pr);
+      });
+      // Üst bant
+      const bant = new THREE.Mesh(new THREE.BoxGeometry(genislik, H-(altH+camH)-0.06, 0.06), govdeM);
+      bant.position.set(0, tabanY + (altH+camH) + (H-(altH+camH))/2, 0);
+      grup.add(bant);
+    }
+
+    if(yon===0){ grup.position.z =  D/2 - 0.03; }
+    if(yon===1){ grup.position.z = -D/2 + 0.03; grup.rotation.y = Math.PI; }
+    if(yon===2){ grup.position.x =  W/2 - 0.03; grup.rotation.y = Math.PI/2; }
+    if(yon===3){ grup.position.x = -W/2 + 0.03; grup.rotation.y = -Math.PI/2; }
+    kabin.add(grup);
+  }
+
+  duvar(W, 0, false);        // ön
+  duvar(W, 1, true);         // arka (kapı)
+  duvar(D, 2, false);        // sağ
+  duvar(D, 3, false);        // sol
+
+  /* Çatı */
+  const catiY = tabanY + H;
+  if(durum.cati==='duz'){
+    const c = new THREE.Mesh(new THREE.BoxGeometry(W+0.1, 0.09, D+0.1), cerceveM);
+    c.position.y = catiY + 0.045; c.castShadow = true; kabin.add(c);
+  } else if(durum.cati==='sacakli'){
+    const c = new THREE.Mesh(new THREE.BoxGeometry(W+0.45, 0.08, D+0.45), cerceveM);
+    c.position.y = catiY + 0.09; c.castShadow = true; kabin.add(c);
+    const boyun = new THREE.Mesh(new THREE.BoxGeometry(W, 0.08, D), govdeM);
+    boyun.position.y = catiY + 0.03; kabin.add(boyun);
+  } else { // eğimli
+    const c = new THREE.Mesh(new THREE.BoxGeometry(W+0.4, 0.07, D+0.55), cerceveM);
+    c.position.y = catiY + 0.16;
+    c.rotation.x = -0.12;
+    c.castShadow = true; kabin.add(c);
+    const dolguK = new THREE.Mesh(new THREE.BoxGeometry(W, 0.16, D), govdeM);
+    dolguK.position.y = catiY + 0.07; kabin.add(dolguK);
+  }
+
+  /* Aksesuar: tabela (ön alın bandına monte) */
+  if(durum.aks.tabela){
+    const tabDoku = tabelaDoku();
+    const tab = new THREE.Mesh(
+      new THREE.BoxGeometry(Math.min(W*0.7, 1.6), 0.26, 0.06),
+      new THREE.MeshStandardMaterial({map:tabDoku, emissiveMap:tabDoku, emissive:0xffffff, emissiveIntensity:0.35})
+    );
+    tab.position.set(0, tabanY + H - 0.17, D/2 + 0.05);
+    kabin.add(tab);
+  }
+
+  /* Aksesuar: klima */
+  if(durum.aks.klima){
+    const kl = new THREE.Group();
+    const kutu = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.42, 0.24), malzeme('#dde2e6', {roughness:0.7}));
+    kutu.castShadow = true; kl.add(kutu);
+    for(let i=0;i<4;i++){
+      const cz = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.02, 0.02), malzeme('#9aa3aa'));
+      cz.position.set(0, -0.12 + i*0.08, 0.12);
+      kl.add(cz);
+    }
+    kl.position.set(W/2 + 0.13, tabanY + H - 0.5, -D/4);
+    kl.rotation.y = Math.PI/2;
+    kabin.add(kl);
+  }
+
+  /* Aksesuar: güneş paneli */
+  if(durum.aks.gunes){
+    const pg = new THREE.Group();
+    const panelW = W*0.55, panelD = Math.min(D*0.6, 1.6);
+    const panel = new THREE.Mesh(
+      new THREE.BoxGeometry(panelW, 0.04, panelD),
+      malzeme('#12233f', {roughness:0.25, metalness:0.6})
+    );
+    panel.castShadow = true; pg.add(panel);
+    // hücre çizgileri
+    const cizgiM = malzeme('#2c4a7a');
+    for(let i=1;i<5;i++){
+      const cz = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.045, panelD*0.94), cizgiM);
+      cz.position.x = -panelW/2 + (panelW/5)*i;
+      pg.add(cz);
+    }
+    // ayaklar
+    [-1,1].forEach(s=>{
+      const ayak = new THREE.Mesh(new THREE.BoxGeometry(panelW*0.9, 0.03, 0.03), cerceveM);
+      ayak.position.set(0, -0.1 - (s>0?0.08:0), s*panelD/2*0.8);
+      pg.add(ayak);
+    });
+    pg.rotation.x = -0.28;
+    const pYuk = durum.cati==='egimli' ? 0.42 : (durum.cati==='sacakli' ? 0.32 : 0.28);
+    pg.position.set(-W*0.16, catiY + pYuk, 0);
+    kabin.add(pg);
+  }
+
+  /* Aksesuar: su deposu */
+  if(durum.aks.depo){
+    const dg = new THREE.Group();
+    const tank = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.32, 0.32, 0.95, 24),
+      malzeme('#dfe6ea', {roughness:0.4})
+    );
+    tank.castShadow = true; dg.add(tank);
+    const kapak = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.06, 16), malzeme('#0e5a8a'));
+    kapak.position.y = 0.5; dg.add(kapak);
+    [0.25,-0.25].forEach(y=>{
+      const cember = new THREE.Mesh(new THREE.TorusGeometry(0.325, 0.012, 8, 24), malzeme('#0e5a8a'));
+      cember.rotation.x = Math.PI/2; cember.position.y = y; dg.add(cember);
+    });
+    dg.position.set(W/2 + 0.45, 0.6, -D/4);
+    kabin.add(dg);
+  }
+
+  kabin.position.y = 0;
+
+  /* Aksesuar: forklift kızağı */
+  if(durum.aks.kizak){
+    [-1,1].forEach(s=>{
+      const k = new THREE.Mesh(new THREE.BoxGeometry(W+0.2, 0.08, 0.14), malzeme('#f0b400',{roughness:0.5}));
+      k.position.set(0, 0.04, s*D/4);
+      k.castShadow = true; kabin.add(k);
+    });
+  }
+
+  hedefY = (tabanY + H)/2 + 0.15;
+  const gerekliMesafe = Math.max(W, D) * 1.7 + 2.4;
+  if(mesafe < gerekliMesafe) mesafe = gerekliMesafe;
+  scene.add(kabin);
+}
+
+/* =========================================================
+   FİYAT + ARAYÜZ
+========================================================= */
+const fmt = n => n.toLocaleString('tr-TR') + ' ₺';
+
+function fiyatHesapla(){
+  const m = MODELLER.find(x=>x.id===durum.model);
+  let t = m.taban;
+  t += CAMLAR.find(x=>x.id===durum.cam).ek;
+  t += CATILAR.find(x=>x.id===durum.cati).ek;
+  t += YALITIMLAR.find(x=>x.id===durum.yalitim).ek;
+  AKSESUARLAR.forEach(a=>{ if(durum.aks[a.id]) t += a.ek; });
+  return t;
+}
+function fiyatYaz(){ document.getElementById('fiyat').textContent = fmt(fiyatHesapla()); }
+
+function kartlariCiz(kapId, liste, secilenGetir, sec){
+  const kap = document.getElementById(kapId);
+  kap.innerHTML = '';
+  liste.forEach(o=>{
+    const el = document.createElement('div');
+    el.className = 'kart' + (secilenGetir()===o.id ? ' secili':'');
+    el.innerHTML = `<div class="ad">${o.ad}</div><div class="detay">${o.detay}${o.ek?` · +${fmt(o.ek)}`:''}</div>`;
+    el.onclick = ()=>{ sec(o.id); tumunuYenile(); };
+    kap.appendChild(el);
+  });
+}
+
+function renkleriCiz(){
+  const kap = document.getElementById('renkler');
+  kap.innerHTML = '';
+  RENKLER.forEach(r=>{
+    const el = document.createElement('div');
+    el.className = 'renk' + (durum.renk===r.id?' secili':'');
+    el.style.background = r.hex;
+    el.title = r.ad;
+    el.onclick = ()=>{ durum.renk = r.id; tumunuYenile(); };
+    kap.appendChild(el);
+  });
+  document.getElementById('renkAd').textContent = RENKLER.find(r=>r.id===durum.renk).ad;
+}
+
+function aksesuarlariCiz(){
+  const kap = document.getElementById('aksesuarlar');
+  kap.innerHTML = '';
+  AKSESUARLAR.forEach(a=>{
+    const el = document.createElement('div');
+    el.className = 'anahtar' + (durum.aks[a.id]?' acik':'');
+    el.innerHTML = `<div class="sol"><div class="ad">${a.ad}</div><div class="detay">${a.detay} · +${fmt(a.ek)}</div></div><div class="dugme"></div>`;
+    el.onclick = ()=>{ durum.aks[a.id] = !durum.aks[a.id]; tumunuYenile(); };
+    kap.appendChild(el);
+  });
+}
+
+function tumunuYenile(){
+  kartlariCiz('modeller', MODELLER, ()=>durum.model, id=>durum.model=id);
+  kartlariCiz('camlar',   CAMLAR,   ()=>durum.cam,   id=>durum.cam=id);
+  kartlariCiz('catilar',  CATILAR,  ()=>durum.cati,  id=>durum.cati=id);
+  kartlariCiz('yalitimlar', YALITIMLAR, ()=>durum.yalitim, id=>durum.yalitim=id);
+  renkleriCiz();
+  aksesuarlariCiz();
+  kabinOlustur();
+  fiyatYaz();
+}
+
+/* Özet modal */
+const modal = document.getElementById('modal');
+document.getElementById('btnTeklif').onclick = ()=>{
+  const m = MODELLER.find(x=>x.id===durum.model);
+  const satirlar = [
+    ['Model', `${m.ad} (${m.detay})`],
+    ['Gövde Rengi', RENKLER.find(x=>x.id===durum.renk).ad],
+    ['Cam', CAMLAR.find(x=>x.id===durum.cam).ad],
+    ['Çatı', CATILAR.find(x=>x.id===durum.cati).ad],
+    ['Yalıtım', YALITIMLAR.find(x=>x.id===durum.yalitim).ad],
+  ];
+  const secilenAks = AKSESUARLAR.filter(a=>durum.aks[a.id]).map(a=>a.ad);
+  satirlar.push(['Aksesuarlar', secilenAks.length ? secilenAks.join(', ') : 'Yok']);
+  document.getElementById('ozet').innerHTML =
+    satirlar.map(([k,v])=>`<div class="ozet-satir"><span class="k">${k}</span><span>${v}</span></div>`).join('');
+  document.getElementById('ozetFiyat').textContent = fmt(fiyatHesapla());
+  modal.classList.add('acik');
+};
+document.getElementById('btnKapat').onclick = ()=> modal.classList.remove('acik');
+document.getElementById('btnGonder').onclick = ()=>{
+  alert('Demo sürüm: Gerçek uygulamada bu buton, seçimleri form / WhatsApp / e-posta ile satış ekibinize iletir.');
+};
+modal.onclick = e => { if(e.target===modal) modal.classList.remove('acik'); };
+
+/* Görünüm butonları */
+const btnDonus = document.getElementById('btnDonus');
+btnDonus.onclick = ()=>{ otoDonus = !otoDonus; btnDonus.classList.toggle('aktif', otoDonus); };
+document.getElementById('btnSifirla').onclick = ()=>{
+  theta=0.7; phi=1.18;
+  const m = MODELLER.find(x=>x.id===durum.model);
+  mesafe = Math.max(m.w, m.d) * 1.7 + 2.4;
+};
+
+/* Boyutlandırma + döngü */
+function boyutlandir(){
+  const w = sahneEl.clientWidth, h = sahneEl.clientHeight;
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+window.addEventListener('resize', boyutlandir);
+
+function dongu(){
+  requestAnimationFrame(dongu);
+  if(otoDonus) theta += 0.0035;
+  kamerayiGuncelle();
+  renderer.render(scene, camera);
+}
+
+tumunuYenile();
+boyutlandir();
+dongu();
+</script>
+</body>
+</html>
