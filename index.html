@@ -168,6 +168,7 @@
       <div class="alt">Kabinimi <span>Tasarla</span></div>
     </div>
     <div class="dondur">
+      <button id="btnIc" title="İç görünümü aç/kapat" style="width:auto;padding:0 12px;font-size:12px;font-weight:700">İÇİNİ GÖR</button>
       <button id="btnDonus" class="aktif" title="Otomatik döndür">⟳</button>
       <button id="btnSifirla" title="Görünümü sıfırla">⌂</button>
     </div>
@@ -211,13 +212,18 @@
         <h2>Aksesuarlar</h2>
         <div id="aksesuarlar"></div>
       </div>
+
+      <div class="bolum">
+        <h2>İç Donanım</h2>
+        <div id="icdonanim"></div>
+      </div>
     </div>
 
     <div class="alt-bar">
       <div class="fiyat-satir">
         <div>
           <div class="etiket">Tahmini Fiyat</div>
-          <div class="not">KDV hariç - nakliye dahil değildir</div>
+          <div class="not">KDV hariç · nakliye dahil değildir</div>
         </div>
         <div class="tutar" id="fiyat">—</div>
       </div>
@@ -245,10 +251,16 @@
    DURUM (müşterinin seçimleri)
 ========================================================= */
 const MODELLER = [
-  {id:'acil',  ad:'Acil Barınma',   detay:'300 × 240 cm · 2 kişi', w:3.0, d:2.4, taban:185000},
-  {id:'aile',  ad:'Aile Tipi',      detay:'500 × 240 cm · 4 kişi', w:5.0, d:2.4, taban:265000},
-  {id:'genis', ad:'Geniş Aile',     detay:'600 × 300 cm · 6 kişi', w:6.0, d:3.0, taban:340000},
-  {id:'koord', ad:'Koordinasyon',   detay:'400 × 240 cm · Ofis',   w:4.0, d:2.4, taban:225000},
+  {id:'acil',  ad:'Acil Barınma',   detay:'300 × 240 cm · 2 kişi', w:3.0, d:2.4, kisi:2, taban:185000},
+  {id:'aile',  ad:'Aile Tipi',      detay:'500 × 240 cm · 4 kişi', w:5.0, d:2.4, kisi:4, taban:265000},
+  {id:'genis', ad:'Geniş Aile',     detay:'600 × 300 cm · 6 kişi', w:6.0, d:3.0, kisi:6, taban:340000},
+  {id:'koord', ad:'Koordinasyon',   detay:'400 × 240 cm · Ofis',   w:4.0, d:2.4, kisi:3, taban:225000},
+];
+const IC_DONANIM = [
+  {id:'koltuk', ad:'Emniyet Kemerli Koltuk', detay:'Kişi başı 1 adet · zemine sabitli', ek:8500},
+  {id:'ranza',  ad:'Ranza Yatak',            detay:'Çelik karkas · 2 yatak',           ek:12000},
+  {id:'dolap',  ad:'Malzeme Dolabı',         detay:'Kilitli çelik dolap',              ek:7500},
+  {id:'masa',   ad:'Katlanır Masa',          detay:'Çok amaçlı kullanım',              ek:4500},
 ];
 const YALITIMLAR = [
   {id:'standart', ad:'Standart',        detay:'EPS panel',             ek:0},
@@ -291,7 +303,9 @@ const durum = {
   cati:'egimli',
   yalitim:'isi',
   aks:{gunes:true, depo:false, klima:false, tabela:true, kizak:false},
+  ic:{koltuk:true, ranza:false, dolap:false, masa:false},
 };
+let icGorunum = false;
 
 /* =========================================================
    3D SAHNE
@@ -495,13 +509,14 @@ function kabinOlustur(){
     kabin.add(grup);
   }
 
-  duvar(W, 0, false);        // ön
+  if(!icGorunum) duvar(W, 0, false);   // ön (iç görünümde gizli)
   duvar(W, 1, true);         // arka (kapı)
   duvar(D, 2, false);        // sağ
   duvar(D, 3, false);        // sol
 
-  /* Çatı */
+  /* Çatı (iç görünümde gizli) */
   const catiY = tabanY + H;
+  if(!icGorunum){
   if(durum.cati==='duz'){
     const c = new THREE.Mesh(new THREE.BoxGeometry(W+0.1, 0.09, D+0.1), cerceveM);
     c.position.y = catiY + 0.045; c.castShadow = true; kabin.add(c);
@@ -518,9 +533,10 @@ function kabinOlustur(){
     const dolguK = new THREE.Mesh(new THREE.BoxGeometry(W, 0.16, D), govdeM);
     dolguK.position.y = catiY + 0.07; kabin.add(dolguK);
   }
+  } // iç görünüm çatı gizleme sonu
 
   /* Aksesuar: tabela (ön alın bandına monte) */
-  if(durum.aks.tabela){
+  if(durum.aks.tabela && !icGorunum){
     const tabDoku = tabelaDoku();
     const tab = new THREE.Mesh(
       new THREE.BoxGeometry(Math.min(W*0.7, 1.6), 0.26, 0.06),
@@ -546,7 +562,7 @@ function kabinOlustur(){
   }
 
   /* Aksesuar: güneş paneli */
-  if(durum.aks.gunes){
+  if(durum.aks.gunes && !icGorunum){
     const pg = new THREE.Group();
     const panelW = W*0.55, panelD = Math.min(D*0.6, 1.6);
     const panel = new THREE.Mesh(
@@ -602,6 +618,100 @@ function kabinOlustur(){
     });
   }
 
+  /* =========== İÇ DONANIM =========== */
+  const kY = tabanY + 0.03;
+  const icZemin = new THREE.Mesh(new THREE.BoxGeometry(W-0.14, 0.03, D-0.14), malzeme('#b9bfc4', {roughness:0.85}));
+  icZemin.position.y = tabanY + 0.015; icZemin.receiveShadow = true; kabin.add(icZemin);
+
+  const kemerM  = malzeme('#e25303', {roughness:0.6});
+  const koltukM = malzeme('#2e3742', {roughness:0.8});
+  const metalM  = malzeme('#8a939c', {roughness:0.35, metalness:0.6});
+
+  function koltukYap(){
+    const g = new THREE.Group();
+    const kaide = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.4), metalM);
+    kaide.position.y = 0.16; g.add(kaide);
+    const oturak = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.09, 0.44), koltukM);
+    oturak.position.y = 0.36; oturak.castShadow = true; g.add(oturak);
+    const sirt = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.62, 0.09), koltukM);
+    sirt.position.set(0, 0.70, -0.19); sirt.castShadow = true; g.add(sirt);
+    const baslik = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.16, 0.08), koltukM);
+    baslik.position.set(0, 1.10, -0.185); g.add(baslik);
+    // 4 nokta emniyet kemeri: çapraz omuz kayışları
+    [-1,1].forEach(s=>{
+      const kemer = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.58, 0.02), kemerM);
+      kemer.position.set(s*0.09, 0.72, -0.135);
+      kemer.rotation.z = s*0.25;
+      g.add(kemer);
+    });
+    // bel kemeri + metal toka
+    const bel = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 0.02), kemerM);
+    bel.position.set(0, 0.44, 0.035); g.add(bel);
+    const toka = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.03), metalM);
+    toka.position.set(0, 0.44, 0.05); g.add(toka);
+    return g;
+  }
+
+  if(durum.ic.koltuk){
+    const adet = m.kisi;
+    const solN = Math.ceil(adet/2), sagN = adet - solN;
+    const sira = (n, taraf)=>{
+      const aralik = 0.66, baslangic = -D/2 + 0.55;
+      for(let i=0;i<n;i++){
+        const k = koltukYap();
+        k.position.set(taraf*(W/2-0.38), kY, baslangic + i*aralik);
+        k.rotation.y = taraf>0 ? -Math.PI/2 : Math.PI/2;
+        kabin.add(k);
+      }
+    };
+    sira(solN, -1); if(sagN>0) sira(sagN, +1);
+  }
+
+  if(durum.ic.ranza){
+    const rg = new THREE.Group();
+    const boy = Math.min(1.9, W-1.6), en = 0.8;
+    [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx,sz])=>{
+      const p = new THREE.Mesh(new THREE.BoxGeometry(0.05,1.6,0.05), metalM);
+      p.position.set(sx*boy/2, 0.8, sz*en/2); rg.add(p);
+    });
+    [0.45, 1.25].forEach(y=>{
+      const kasa = new THREE.Mesh(new THREE.BoxGeometry(boy,0.07,en), metalM);
+      kasa.position.y = y; rg.add(kasa);
+      const yatak = new THREE.Mesh(new THREE.BoxGeometry(boy-0.08,0.12,en-0.08), malzeme('#cfd6da',{roughness:0.9}));
+      yatak.position.y = y+0.09; yatak.castShadow = true; rg.add(yatak);
+      const yastik = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.09,en-0.24), malzeme('#eef1f3',{roughness:0.95}));
+      yastik.position.set(-boy/2+0.22, y+0.19, 0); rg.add(yastik);
+    });
+    rg.position.set(-(W/2)+boy/2+0.25, kY, D/2 - en/2 - 0.06);
+    kabin.add(rg);
+  }
+
+  if(durum.ic.dolap){
+    const dol = new THREE.Group();
+    const govdeD = new THREE.Mesh(new THREE.BoxGeometry(0.75,1.85,0.48), malzeme('#9aa3ab',{roughness:0.5,metalness:0.3}));
+    govdeD.position.y = 0.925; govdeD.castShadow = true; dol.add(govdeD);
+    const derz = new THREE.Mesh(new THREE.BoxGeometry(0.015,1.7,0.02), malzeme('#5c656d'));
+    derz.position.set(0,0.925,0.245); dol.add(derz);
+    [-1,1].forEach(s=>{
+      const kol = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.14,0.03), metalM);
+      kol.position.set(s*0.07,0.95,0.25); dol.add(kol);
+    });
+    dol.position.set(W/2-0.55, kY, D/2-0.4);
+    kabin.add(dol);
+  }
+
+  if(durum.ic.masa){
+    const mg = new THREE.Group();
+    const tabla = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.05,0.55), malzeme('#d7cdb8',{roughness:0.7}));
+    tabla.position.y = 0.74; tabla.castShadow = true; mg.add(tabla);
+    [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx,sz])=>{
+      const ayak = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.72,0.04), metalM);
+      ayak.position.set(sx*0.4,0.36,sz*0.23); mg.add(ayak);
+    });
+    mg.position.set(W*0.14, kY, 0);
+    kabin.add(mg);
+  }
+
   hedefY = (tabanY + H)/2 + 0.15;
   const gerekliMesafe = Math.max(W, D) * 1.7 + 2.4;
   if(mesafe < gerekliMesafe) mesafe = gerekliMesafe;
@@ -620,6 +730,7 @@ function fiyatHesapla(){
   t += CATILAR.find(x=>x.id===durum.cati).ek;
   t += YALITIMLAR.find(x=>x.id===durum.yalitim).ek;
   AKSESUARLAR.forEach(a=>{ if(durum.aks[a.id]) t += a.ek; });
+  IC_DONANIM.forEach(a=>{ if(durum.ic[a.id]) t += (a.id==='koltuk' ? a.ek * m.kisi : a.ek); });
   return t;
 }
 function fiyatYaz(){ document.getElementById('fiyat').textContent = fmt(fiyatHesapla()); }
@@ -650,14 +761,15 @@ function renkleriCiz(){
   document.getElementById('renkAd').textContent = RENKLER.find(r=>r.id===durum.renk).ad;
 }
 
-function aksesuarlariCiz(){
-  const kap = document.getElementById('aksesuarlar');
+function anahtarlariCiz(kapId, liste, obj, ekYaz){
+  const kap = document.getElementById(kapId);
   kap.innerHTML = '';
-  AKSESUARLAR.forEach(a=>{
+  liste.forEach(a=>{
     const el = document.createElement('div');
-    el.className = 'anahtar' + (durum.aks[a.id]?' acik':'');
-    el.innerHTML = `<div class="sol"><div class="ad">${a.ad}</div><div class="detay">${a.detay} · +${fmt(a.ek)}</div></div><div class="dugme"></div>`;
-    el.onclick = ()=>{ durum.aks[a.id] = !durum.aks[a.id]; tumunuYenile(); };
+    el.className = 'anahtar' + (obj[a.id]?' acik':'');
+    const ek = ekYaz ? ekYaz(a) : fmt(a.ek);
+    el.innerHTML = `<div class="sol"><div class="ad">${a.ad}</div><div class="detay">${a.detay} · +${ek}</div></div><div class="dugme"></div>`;
+    el.onclick = ()=>{ obj[a.id] = !obj[a.id]; tumunuYenile(); };
     kap.appendChild(el);
   });
 }
@@ -668,7 +780,11 @@ function tumunuYenile(){
   kartlariCiz('catilar',  CATILAR,  ()=>durum.cati,  id=>durum.cati=id);
   kartlariCiz('yalitimlar', YALITIMLAR, ()=>durum.yalitim, id=>durum.yalitim=id);
   renkleriCiz();
-  aksesuarlariCiz();
+  anahtarlariCiz('aksesuarlar', AKSESUARLAR, durum.aks);
+  anahtarlariCiz('icdonanim', IC_DONANIM, durum.ic,
+    a => a.id==='koltuk'
+      ? fmt(a.ek * MODELLER.find(x=>x.id===durum.model).kisi) + ` (${MODELLER.find(x=>x.id===durum.model).kisi} adet)`
+      : fmt(a.ek));
   kabinOlustur();
   fiyatYaz();
 }
@@ -686,6 +802,9 @@ document.getElementById('btnTeklif').onclick = ()=>{
   ];
   const secilenAks = AKSESUARLAR.filter(a=>durum.aks[a.id]).map(a=>a.ad);
   satirlar.push(['Aksesuarlar', secilenAks.length ? secilenAks.join(', ') : 'Yok']);
+  const secilenIc = IC_DONANIM.filter(a=>durum.ic[a.id])
+    .map(a=> a.id==='koltuk' ? `${a.ad} × ${m.kisi}` : a.ad);
+  satirlar.push(['İç Donanım', secilenIc.length ? secilenIc.join(', ') : 'Yok']);
   document.getElementById('ozet').innerHTML =
     satirlar.map(([k,v])=>`<div class="ozet-satir"><span class="k">${k}</span><span>${v}</span></div>`).join('');
   document.getElementById('ozetFiyat').textContent = fmt(fiyatHesapla());
@@ -700,6 +819,13 @@ modal.onclick = e => { if(e.target===modal) modal.classList.remove('acik'); };
 /* Görünüm butonları */
 const btnDonus = document.getElementById('btnDonus');
 btnDonus.onclick = ()=>{ otoDonus = !otoDonus; btnDonus.classList.toggle('aktif', otoDonus); };
+const btnIc = document.getElementById('btnIc');
+btnIc.onclick = ()=>{
+  icGorunum = !icGorunum;
+  btnIc.classList.toggle('aktif', icGorunum);
+  if(icGorunum){ theta = 0.15; phi = 1.05; }  // içeriye bakan açı
+  kabinOlustur();
+};
 document.getElementById('btnSifirla').onclick = ()=>{
   theta=0.7; phi=1.18;
   const m = MODELLER.find(x=>x.id===durum.model);
@@ -725,6 +851,9 @@ function dongu(){
 tumunuYenile();
 boyutlandir();
 dongu();
+
+/* Sağ tık menüsünü devre dışı bırak */
+document.addEventListener('contextmenu', e => e.preventDefault());
 </script>
 </body>
 </html>
